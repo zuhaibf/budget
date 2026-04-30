@@ -7,11 +7,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- ✅ ADDED: Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
 <style>
-/* ✅ NOTHING CHANGED — your exact styles preserved */
 :root {
   --bg:#0b0b0b;
   --card:#151515;
@@ -54,6 +50,7 @@ body {
 
 .hidden { display:none; }
 
+/* FLOATING FIELD */
 .field {
   position:relative;
   margin-top:18px;
@@ -109,12 +106,28 @@ body {
 
 .field input::placeholder {
   opacity:0;
+  transition:opacity .2s ease;
+}
+
+.field input:focus::placeholder {
+  opacity:0.3;
 }
 
 .field select {
   background-image:url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' stroke='white' fill='none' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat:no-repeat;
   background-position:right 12px center;
+}
+
+.field.error input,
+.field.error select {
+  box-shadow:0 0 0 2px rgba(239,68,68,0.5);
+}
+
+.error-msg {
+  color:var(--danger);
+  font-size:12px;
+  margin-top:4px;
 }
 
 button {
@@ -183,6 +196,7 @@ button {
 
 <div class="container">
 
+<!-- HOME -->
 <div id="home">
   <h2>Overview</h2>
 
@@ -203,18 +217,21 @@ button {
   </div>
 </div>
 
+<!-- CHARTS -->
 <div id="charts" class="hidden">
   <h2>Analytics</h2>
   <div class="card"><canvas id="barChart"></canvas></div>
   <div class="card"><canvas id="pieChart"></canvas></div>
 </div>
 
+<!-- ADD -->
 <div id="add" class="hidden">
   <h2>Add Transaction</h2>
 
-  <div class="field">
+  <div class="field" id="amountField">
     <input id="amount" type="number" placeholder="Amount"/>
     <label>Amount</label>
+    <div class="error-msg hidden">Enter amount</div>
   </div>
 
   <div class="field">
@@ -231,7 +248,7 @@ button {
   </div>
 
   <div class="field">
-    <input id="date" type="datetime-local"/>
+    <input id="date" type="datetime-local" placeholder=" "/>
     <label>Date & Time</label>
   </div>
 
@@ -240,21 +257,38 @@ button {
 
 </div>
 
+<!-- NAV -->
 <div class="nav">
   <div class="nav-inner">
-    <button onclick="show('home')" class="nav-item active">Home</button>
-    <button onclick="show('charts')" class="nav-item">Charts</button>
-    <button onclick="show('add')" class="nav-item primary">+</button>
+
+    <button id="nav-home" class="nav-item active" onclick="show('home')">
+      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        <path d="M3 10L12 3l9 7"/>
+        <path d="M9 21V12h6v9"/>
+      </svg>
+      <span>Home</span>
+    </button>
+
+    <button id="nav-charts" class="nav-item" onclick="show('charts')">
+      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        <rect x="3" y="10" width="4" height="10"/>
+        <rect x="10" y="6" width="4" height="14"/>
+        <rect x="17" y="3" width="4" height="17"/>
+      </svg>
+      <span>Charts</span>
+    </button>
+
+    <button class="nav-item primary" onclick="show('add')">
+      <svg width="22" height="22" stroke="black" fill="none" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
+
   </div>
 </div>
 
 <script>
-/* ✅ ADDED: Supabase init */
-const supabase = window.supabase.createClient(
-  "https://avxkcflgbgpxmheszrwj.supabase.co",
-  "sb_publishable_tYY2EV-k2mesi0i-URIGSQ_DzJGZOjx"
-);
-
 const amountEl = document.getElementById("amount");
 const typeEl = document.getElementById("type");
 const categoryEl = document.getElementById("category");
@@ -263,10 +297,11 @@ const dateEl = document.getElementById("date");
 const incomeEl = document.getElementById("income");
 const expenseEl = document.getElementById("expense");
 const listEl = document.getElementById("list");
+const amountField = document.getElementById("amountField");
 
-let data = [];
+let data = JSON.parse(localStorage.getItem("tx") || "[]");
 
-/* ✅ category logic (unchanged) */
+/* ✅ NEW: category logic */
 const categoryMap = {
   expense: ["Food","Rent","Shopping","Travel"],
   income: ["Salary","Freelance","Bonus"]
@@ -275,23 +310,39 @@ const categoryMap = {
 function updateCategories() {
   const selectedType = typeEl.value;
   const categories = categoryMap[selectedType];
-  categoryEl.innerHTML = categories.map(c => `<option>${c}</option>`).join("");
+
+  categoryEl.innerHTML = categories
+    .map(c => `<option value="${c}">${c}</option>`)
+    .join("");
 }
 
+/* attach listener */
 typeEl.addEventListener("change", updateCategories);
 
-/* ✅ UPDATED: SAVE to Supabase */
-document.getElementById("saveBtn").onclick = async () => {
-  if (!amountEl.value) return;
+document.getElementById("saveBtn").onclick = () => {
+  let valid = true;
 
-  await supabase.from("transactions").insert({
+  if (!amountEl.value) {
+    amountField.classList.add("error");
+    amountField.querySelector(".error-msg").classList.remove("hidden");
+    valid = false;
+  } else {
+    amountField.classList.remove("error");
+    amountField.querySelector(".error-msg").classList.add("hidden");
+  }
+
+  if (!valid) return;
+
+  data.unshift({
+    id: Date.now(),
     amount: +amountEl.value,
     type: typeEl.value,
     category: categoryEl.value,
-    created_at: dateEl.value || new Date().toISOString()
+    date: dateEl.value || new Date().toISOString()
   });
 
-  fetchData();
+  localStorage.setItem("tx", JSON.stringify(data));
+  render();
   show('home');
 };
 
@@ -304,19 +355,8 @@ function show(page){
 
   if(page==="add"){
     dateEl.value = new Date().toISOString().slice(0,16);
-    updateCategories();
+    updateCategories(); /* ensure correct categories */
   }
-}
-
-/* ✅ NEW: fetch from Supabase */
-async function fetchData() {
-  const { data: rows } = await supabase
-    .from("transactions")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  data = rows || [];
-  render();
 }
 
 let barChart, pieChart;
@@ -340,7 +380,7 @@ function render(){
       <div class="row">
         <div>
           <div>${t.category}</div>
-          <small>${new Date(t.created_at).toLocaleString()}</small>
+          <small>${new Date(t.date).toLocaleString()}</small>
         </div>
         <div class="${t.type==="expense"?"red":"green"}">₹${t.amount}</div>
       </div>
@@ -362,7 +402,7 @@ function render(){
 
 /* init */
 updateCategories();
-fetchData();
+render();
 </script>
 
 </body>
