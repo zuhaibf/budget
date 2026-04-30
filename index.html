@@ -7,6 +7,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<!-- ✅ Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+const supabaseClient = supabase.createClient(
+  "YOUR_PROJECT_URL",
+  "YOUR_ANON_KEY"
+);
+</script>
+
 <style>
 :root {
   --bg:#0b0b0b;
@@ -262,27 +271,15 @@ button {
   <div class="nav-inner">
 
     <button id="nav-home" class="nav-item active" onclick="show('home')">
-      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-        <path d="M3 10L12 3l9 7"/>
-        <path d="M9 21V12h6v9"/>
-      </svg>
       <span>Home</span>
     </button>
 
     <button id="nav-charts" class="nav-item" onclick="show('charts')">
-      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-        <rect x="3" y="10" width="4" height="10"/>
-        <rect x="10" y="6" width="4" height="14"/>
-        <rect x="17" y="3" width="4" height="17"/>
-      </svg>
       <span>Charts</span>
     </button>
 
     <button class="nav-item primary" onclick="show('add')">
-      <svg width="22" height="22" stroke="black" fill="none" stroke-width="2">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
+      +
     </button>
 
   </div>
@@ -299,9 +296,8 @@ const expenseEl = document.getElementById("expense");
 const listEl = document.getElementById("list");
 const amountField = document.getElementById("amountField");
 
-let data = JSON.parse(localStorage.getItem("tx") || "[]");
+let data = [];
 
-/* ✅ NEW: category logic */
 const categoryMap = {
   expense: ["Food","Rent","Shopping","Travel"],
   income: ["Salary","Freelance","Bonus"]
@@ -310,16 +306,12 @@ const categoryMap = {
 function updateCategories() {
   const selectedType = typeEl.value;
   const categories = categoryMap[selectedType];
-
-  categoryEl.innerHTML = categories
-    .map(c => `<option value="${c}">${c}</option>`)
-    .join("");
+  categoryEl.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join("");
 }
 
-/* attach listener */
 typeEl.addEventListener("change", updateCategories);
 
-document.getElementById("saveBtn").onclick = () => {
+document.getElementById("saveBtn").onclick = async () => {
   let valid = true;
 
   if (!amountEl.value) {
@@ -333,16 +325,16 @@ document.getElementById("saveBtn").onclick = () => {
 
   if (!valid) return;
 
-  data.unshift({
-    id: Date.now(),
-    amount: +amountEl.value,
-    type: typeEl.value,
-    category: categoryEl.value,
-    date: dateEl.value || new Date().toISOString()
-  });
+  await supabaseClient.from("transactions").insert([
+    {
+      amount: +amountEl.value,
+      type: typeEl.value,
+      category: categoryEl.value,
+      date: dateEl.value || new Date().toISOString()
+    }
+  ]);
 
-  localStorage.setItem("tx", JSON.stringify(data));
-  render();
+  await loadData();
   show('home');
 };
 
@@ -355,11 +347,21 @@ function show(page){
 
   if(page==="add"){
     dateEl.value = new Date().toISOString().slice(0,16);
-    updateCategories(); /* ensure correct categories */
+    updateCategories();
   }
 }
 
 let barChart, pieChart;
+
+async function loadData(){
+  const { data: rows } = await supabaseClient
+    .from("transactions")
+    .select("*")
+    .order("date", { ascending: false });
+
+  data = rows || [];
+  render();
+}
 
 function render(){
   let income=0, expense=0, map={};
@@ -400,9 +402,8 @@ function render(){
   });
 }
 
-/* init */
 updateCategories();
-render();
+loadData();
 </script>
 
 </body>
