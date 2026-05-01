@@ -12,7 +12,14 @@
 <script>
 const supabaseClient = supabase.createClient(
   "https://avxkcflgbgpxmheszrwj.supabase.co",
-  "sb_publishable_tYY2EV-k2mesi0i-URIGSQ_DzJGZOjx"
+  "sb_publishable_tYY2EV-k2mesi0i-URIGSQ_DzJGZOjx",
+  {
+    auth: {
+      persistSession: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage
+    }
+  }
 );
 </script>
 <style>
@@ -50,8 +57,8 @@ body {
   font-size:17px; outline:none; appearance:none;
 }
 .field label {
-  position:absolute; left:14px; top:22px;
-  font-size:15px; color:var(--muted);
+  position:absolute; left:14px; top:10px;
+  font-size:12px; color:var(--muted);
 }
 .field select {
   background-image:url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' stroke='white' fill='none' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -212,9 +219,14 @@ const categoryMap = {
 
 /* ---- AUTH ---- */
 async function init() {
+  if (window.location.hash.includes("error=")) {
+    history.replaceState(null, "", window.location.pathname);
+  }
+
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     currentUser = session.user;
+    history.replaceState(null, "", window.location.pathname);
     showApp();
   } else {
     showAuth();
@@ -240,12 +252,15 @@ document.getElementById("loginBtn").onclick = async () => {
   btn.textContent = "Sending...";
   const { error } = await supabaseClient.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.href }
+    options: { emailRedirectTo: "https://zuhaibf.github.io/budget/" }
   });
   btn.disabled = false;
   btn.textContent = "Send Magic Link";
   if (error) {
-    alert(error.message);
+    const msg = error.message.includes("rate limit")
+      ? "Too many attempts. Please wait a few minutes and try again."
+      : error.message;
+    alert(msg);
   } else {
     document.getElementById("authMsg").textContent = "✓ Check your email for the link!";
   }
