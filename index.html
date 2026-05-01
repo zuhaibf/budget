@@ -329,7 +329,10 @@ function show(page) {
   const navBtn = document.getElementById("nav-" + page);
   if (navBtn) navBtn.classList.add("active");
   if (page === "add") {
-    dateEl.value = new Date().toISOString().slice(0,16);
+    const now = new Date();
+    const offset = 330; // IST = UTC+5:30
+    const ist = new Date(now.getTime() + offset * 60000);
+    dateEl.value = ist.toISOString().slice(0,16);
     updateCategories();
   }
 }
@@ -349,7 +352,7 @@ function render() {
           <div>${t.category}</div>
           <small>${new Date(t.date).toLocaleString()}</small>
         </div>
-        <div class="${t.type==="expense"?"red":"green"}">₹${t.amount}</div>
+        <div class="${t.type==="expense"?"red":"green"}">₹${t.amount.toLocaleString('en-IN')}</div>
       </div>`).join("")
     : "<div class='empty'>No transactions yet</div>";
 
