@@ -41,7 +41,6 @@ body {
 .green { color:var(--success); } .red { color:var(--danger); }
 .hidden { display:none; }
 
-/* AUTH */
 #auth { padding:40px 24px; }
 #auth h2 { margin-bottom:8px; }
 #auth p { color:var(--muted); font-size:14px; margin-bottom:24px; }
@@ -78,14 +77,14 @@ button {
 
 .nav { position:fixed; bottom:12px; width:100%; max-width:420px; display:flex; justify-content:center; }
 .nav-inner {
-  width:90%; display:flex; justify-content:space-between; align-items:center;
+  width:95%; display:flex; justify-content:space-between; align-items:center;
   background:rgba(20,20,20,0.6); backdrop-filter:blur(12px);
-  border-radius:20px; padding:10px 16px;
+  border-radius:20px; padding:10px 12px;
 }
 .nav-item {
   display:flex; flex-direction:column; align-items:center;
-  font-size:11px; color:#aaa; background:none; border:none; width:auto;
-  margin:0; padding:4px 8px;
+  font-size:10px; color:#aaa; background:none; border:none; width:auto;
+  margin:0; padding:4px 6px;
 }
 .nav-item.active { color:white; }
 .nav-item.primary {
@@ -96,16 +95,36 @@ button {
 .empty { text-align:center; color:#666; padding:16px; }
 
 input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+input[type=number] { -moz-appearance:textfield; }
+
+/* Month picker */
+.month-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
 }
-input[type=number] { -moz-appearance: textfield; }
+.month-nav button {
+  width:36px; height:36px; border-radius:50%; padding:0; margin:0;
+  background:var(--field); color:white; font-size:18px; display:flex;
+  align-items:center; justify-content:center;
+}
+.month-nav span { font-size:16px; font-weight:600; }
+
+/* Transaction item */
+.txn-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid #222;
+}
+.txn-item:last-child { border-bottom:none; }
+.txn-meta { font-size:13px; color:var(--muted); margin-top:2px; }
+.txn-summary {
+  display:flex; justify-content:space-between;
+  padding:10px 0 2px; font-size:13px; color:var(--muted);
+}
 </style>
 </head>
 <body>
 
-<!-- AUTH -->
 <div id="auth" class="hidden">
   <h2>Budget Manager</h2>
   <p>Sign in to your account</p>
@@ -116,7 +135,6 @@ input[type=number] { -moz-appearance: textfield; }
   <p id="authMsg" style="color:var(--success);font-size:14px;text-align:center;"></p>
 </div>
 
-<!-- APP -->
 <div id="app" class="hidden">
 <div class="container">
 
@@ -139,6 +157,25 @@ input[type=number] { -moz-appearance: textfield; }
     <div class="card">
       <h3>Recent Transactions</h3>
       <div id="list"></div>
+    </div>
+  </div>
+
+  <!-- ALL TRANSACTIONS -->
+  <div id="txns" class="hidden">
+    <h2>Transactions</h2>
+    <div class="card">
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">&#8249;</button>
+        <span id="monthLabel"></span>
+        <button onclick="changeMonth(1)">&#8250;</button>
+      </div>
+      <div class="txn-summary">
+        <span>Income: <span class="green" id="txnIncome">₹0</span></span>
+        <span>Expense: <span class="red" id="txnExpense">₹0</span></span>
+      </div>
+    </div>
+    <div class="card">
+      <div id="txnList"></div>
     </div>
   </div>
 
@@ -190,6 +227,23 @@ input[type=number] { -moz-appearance: textfield; }
       </svg>
       <span>Home</span>
     </button>
+    <button id="nav-txns" class="nav-item" onclick="show('txns')">
+      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        <line x1="8" y1="6" x2="21" y2="6"/>
+        <line x1="8" y1="12" x2="21" y2="12"/>
+        <line x1="8" y1="18" x2="21" y2="18"/>
+        <circle cx="3" cy="6" r="1" fill="currentColor"/>
+        <circle cx="3" cy="12" r="1" fill="currentColor"/>
+        <circle cx="3" cy="18" r="1" fill="currentColor"/>
+      </svg>
+      <span>All</span>
+    </button>
+    <button class="nav-item primary" onclick="show('add')">
+      <svg width="22" height="22" stroke="black" fill="none" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
     <button id="nav-charts" class="nav-item" onclick="show('charts')">
       <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
         <rect x="3" y="10" width="4" height="10"/>
@@ -198,16 +252,10 @@ input[type=number] { -moz-appearance: textfield; }
       </svg>
       <span>Charts</span>
     </button>
-    <button class="nav-item primary" onclick="show('add')">
-      <svg width="22" height="22" stroke="black" fill="none" stroke-width="2">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-    </button>
   </div>
 </div>
 
-</div><!-- /app -->
+</div>
 
 <script>
 const amountEl = document.getElementById("amount");
@@ -225,18 +273,22 @@ const appDiv = document.getElementById("app");
 let data = [];
 let currentUser = null;
 let barChart, pieChart;
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
 
 const categoryMap = {
-  expense: ["Food","Rent","Shopping","Travel", "Subscription","Transfer","Donation"],
+    expense: ["Food","Rent","Shopping","Travel", "Subscription","Transfer","Donation"],
   income: ["Salary","Freelance","Bonus"]
 };
+
+const monthNames = ["January","February","March","April","May","June",
+  "July","August","September","October","November","December"];
 
 /* ---- AUTH ---- */
 async function init() {
   if (window.location.hash.includes("error=")) {
     history.replaceState(null, "", window.location.pathname);
   }
-
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     currentUser = session.user;
@@ -277,13 +329,8 @@ document.getElementById("signupBtn").onclick = async () => {
 };
 
 supabaseClient.auth.onAuthStateChange((event, session) => {
-  if (session) {
-    currentUser = session.user;
-    showApp();
-  } else {
-    currentUser = null;
-    showAuth();
-  }
+  if (session) { currentUser = session.user; showApp(); }
+  else { currentUser = null; showAuth(); }
 });
 
 async function logout() {
@@ -302,6 +349,7 @@ async function loadData() {
     .order("date", { ascending: false });
   data = rows || [];
   render();
+  renderTxns();
 }
 
 document.getElementById("saveBtn").onclick = async () => {
@@ -337,18 +385,56 @@ function updateCategories() {
 typeEl.addEventListener("change", updateCategories);
 
 function show(page) {
-  ["home","charts","add"].forEach(p => document.getElementById(p).classList.add("hidden"));
+  ["home","txns","charts","add"].forEach(p => document.getElementById(p).classList.add("hidden"));
   document.getElementById(page).classList.remove("hidden");
   document.querySelectorAll(".nav-item:not(.primary)").forEach(b => b.classList.remove("active"));
   const navBtn = document.getElementById("nav-" + page);
   if (navBtn) navBtn.classList.add("active");
   if (page === "add") {
     const now = new Date();
-    const offset = 330;
-    const ist = new Date(now.getTime() + offset * 60000);
+    const ist = new Date(now.getTime() + 330 * 60000);
     dateEl.value = ist.toISOString().slice(0,16);
     updateCategories();
   }
+  if (page === "txns") renderTxns();
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderTxns();
+}
+
+function renderTxns() {
+  document.getElementById("monthLabel").textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+  const filtered = data.filter(t => {
+    const d = new Date(t.date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  let inc = 0, exp = 0;
+  filtered.forEach(t => t.type === "income" ? inc += t.amount : exp += t.amount);
+  document.getElementById("txnIncome").textContent = "₹" + inc.toLocaleString('en-IN');
+  document.getElementById("txnExpense").textContent = "₹" + exp.toLocaleString('en-IN');
+
+  const txnList = document.getElementById("txnList");
+  if (!filtered.length) {
+    txnList.innerHTML = "<div class='empty'>No transactions this month</div>";
+    return;
+  }
+
+  txnList.innerHTML = filtered.map(t => `
+    <div class="txn-item">
+      <div>
+        <div>${t.category}${t.note ? ` · ${t.note}` : ""}</div>
+        <div class="txn-meta">${new Date(t.date).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="${t.type==="expense"?"red":"green"}" style="font-weight:600;">
+        ${t.type==="expense"?"-":"+"} ₹${t.amount.toLocaleString('en-IN')}
+      </div>
+    </div>`).join("");
 }
 
 function render() {
