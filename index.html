@@ -11,8 +11,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script>
 const supabaseClient = supabase.createClient(
-  "https://tdfwnrkfnzxlfzujiglb.supabase.co",
-  "sb_publishable_MGLvTa1fn1v4gU6u1K5a4w_DL8AWg3W",
+  "https://avxkcflgbgpxmheszrwj.supabase.co",
+  "sb_publishable_tYY2EV-k2mesi0i-URIGSQ_DzJGZOjx",
   {
     auth: {
       persistSession: true,
@@ -74,7 +74,6 @@ button {
   margin-top:16px; font-weight:600; background:white; color:black;
   cursor:pointer;
 }
-.btn-danger { background:#ef4444; color:white; margin-top:8px; }
 
 .nav { position:fixed; bottom:12px; width:100%; max-width:420px; display:flex; justify-content:center; }
 .nav-inner {
@@ -101,9 +100,11 @@ button {
 <!-- AUTH -->
 <div id="auth" class="hidden">
   <h2>Budget Manager</h2>
-  <p>Enter your email to receive a magic link</p>
-  <input id="emailInput" type="email" placeholder="you@example.com" />
-  <button id="loginBtn">Send Magic Link</button>
+  <p>Sign in to your account</p>
+  <input id="emailInput" type="email" placeholder="Email" />
+  <input id="passwordInput" type="password" placeholder="Password" />
+  <button id="loginBtn">Login</button>
+  <button id="signupBtn" style="background:#1f1f1f;color:white;margin-top:8px;">Create Account</button>
   <p id="authMsg" style="color:var(--success);font-size:14px;text-align:center;"></p>
 </div>
 
@@ -246,24 +247,20 @@ function showApp() {
 
 document.getElementById("loginBtn").onclick = async () => {
   const email = document.getElementById("emailInput").value.trim();
-  if (!email) return alert("Enter your email");
-  const btn = document.getElementById("loginBtn");
-  btn.disabled = true;
-  btn.textContent = "Sending...";
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: "https://zuhaibf.github.io/budget/" }
-  });
-  btn.disabled = false;
-  btn.textContent = "Send Magic Link";
-  if (error) {
-    const msg = error.message.includes("rate limit")
-      ? "Too many attempts. Please wait a few minutes and try again."
-      : error.message;
-    alert(msg);
-  } else {
-    document.getElementById("authMsg").textContent = "✓ Check your email for the link!";
-  }
+  const password = document.getElementById("passwordInput").value;
+  if (!email || !password) return alert("Enter email and password");
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) alert(error.message);
+};
+
+document.getElementById("signupBtn").onclick = async () => {
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
+  if (!email || !password) return alert("Enter email and password");
+  if (password.length < 6) return alert("Password must be at least 6 characters");
+  const { error } = await supabaseClient.auth.signUp({ email, password });
+  if (error) alert(error.message);
+  else document.getElementById("authMsg").textContent = "✓ Account created! You are now logged in.";
 };
 
 supabaseClient.auth.onAuthStateChange((event, session) => {
