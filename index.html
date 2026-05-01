@@ -277,8 +277,9 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
 });
 
 async function logout() {
-  await supabaseClient.auth.signOut();
-    location.reload();
+  await supabaseClient.auth.signOut({ scope: 'local' });
+  localStorage.clear();
+  location.reload();
 }
 
 /* ---- DATA ---- */
