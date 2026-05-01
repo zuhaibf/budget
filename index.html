@@ -4,7 +4,6 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b0b0b">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -23,10 +22,6 @@ const supabaseClient = supabase.createClient(
     }
   }
 );
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/budget/sw.js').catch(() => {});
-}
 </script>
 <style>
 :root {
@@ -365,11 +360,7 @@ async function init() {
   if (window.location.hash.includes("error=")) {
     history.replaceState(null, "", window.location.pathname);
   }
-  let { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) {
-    const { data: refreshed } = await supabaseClient.auth.refreshSession();
-    session = refreshed.session;
-  }
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     currentUser = session.user;
     history.replaceState(null, "", window.location.pathname);
@@ -603,6 +594,480 @@ function render() {
       data:{labels:Object.keys(map),datasets:[{data:Object.values(map)}]}
     });
   }
+}
+
+updateCategories();
+init();
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0b0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Budget Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+const supabaseClient = supabase.createClient(
+  "https://tdfwnrkfnzxlfzujiglb.supabase.co",
+  "sb_publishable_MGLvTa1fn1v4gU6u1K5a4w_DL8AWg3W",
+  {
+    auth: {
+      persistSession: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage
+    }
+  }
+);
+</script>
+<style>
+:root {
+  --bg:#0b0b0b; --card:#151515; --field:#1f1f1f;
+  --text:#fff; --muted:#9ca3af; --accent:#3b82f6;
+  --danger:#ef4444; --success:#22c55e;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--bg); color:var(--text);
+  max-width:420px; margin:auto;
+}
+.container { padding:16px; padding-bottom:110px; }
+.card { background:var(--card); padding:16px; border-radius:18px; margin-bottom:12px; }
+.row { display:flex; justify-content:space-between; margin-top:10px; }
+.green { color:var(--success); } .red { color:var(--danger); }
+.hidden { display:none; }
+
+#auth { padding:40px 24px; }
+#auth h2 { margin-bottom:8px; }
+#auth p { color:var(--muted); font-size:14px; margin-bottom:24px; }
+#auth input {
+  width:100%; padding:14px; border:none; border-radius:14px;
+  background:var(--field); color:white; font-size:16px;
+  outline:none; margin-bottom:12px;
+}
+
+.field { position:relative; margin-top:18px; }
+.field input, .field select {
+  width:100%; padding:34px 14px 18px; border:none;
+  border-radius:14px; background:var(--field); color:white;
+  font-size:17px; outline:none; appearance:none;
+}
+.field label {
+  position:absolute; left:14px; top:10px;
+  font-size:12px; color:var(--muted);
+}
+.field select {
+  background-image:url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 24 24' stroke='white' fill='none' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center;
+}
+.field.error input, .field.error select {
+  box-shadow:0 0 0 2px rgba(239,68,68,0.5);
+}
+.error-msg { color:var(--danger); font-size:12px; margin-top:4px; }
+
+button {
+  width:100%; padding:16px; border-radius:14px; border:none;
+  margin-top:16px; font-weight:600; background:white; color:black;
+  cursor:pointer;
+}
+
+.nav { position:fixed; bottom:12px; width:100%; max-width:420px; display:flex; justify-content:center; }
+.nav-inner {
+  width:95%; display:flex; justify-content:space-between; align-items:center;
+  background:rgba(20,20,20,0.6); backdrop-filter:blur(12px);
+  border-radius:20px; padding:10px 12px;
+}
+.nav-item {
+  display:flex; flex-direction:column; align-items:center;
+  font-size:10px; color:#aaa; background:none; border:none; width:auto;
+  margin:0; padding:4px 6px;
+}
+.nav-item.active { color:white; }
+.nav-item.primary {
+  width:56px !important; height:56px !important; border-radius:50%;
+  background:white; display:flex; align-items:center;
+  justify-content:center; margin-top:-30px;
+}
+.empty { text-align:center; color:#666; padding:16px; }
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+input[type=number] { -moz-appearance:textfield; }
+
+/* Month picker */
+.month-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
+}
+.month-nav button {
+  width:36px; height:36px; border-radius:50%; padding:0; margin:0;
+  background:var(--field); color:white; font-size:18px; display:flex;
+  align-items:center; justify-content:center;
+}
+.month-nav span { font-size:16px; font-weight:600; }
+
+/* Transaction item */
+.txn-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 0; border-bottom:1px solid #222;
+}
+.txn-item:last-child { border-bottom:none; }
+.txn-meta { font-size:13px; color:var(--muted); margin-top:2px; }
+.txn-summary {
+  display:flex; justify-content:space-between;
+  padding:10px 0 2px; font-size:13px; color:var(--muted);
+}
+</style>
+</head>
+<body>
+
+<div id="auth" class="hidden">
+  <h2>Budget Manager</h2>
+  <p>Sign in to your account</p>
+  <input id="emailInput" type="email" placeholder="Email" />
+  <input id="passwordInput" type="password" placeholder="Password" />
+  <button id="loginBtn">Login</button>
+  <button id="signupBtn" style="background:#1f1f1f;color:white;margin-top:8px;">Create Account</button>
+  <p id="authMsg" style="color:var(--success);font-size:14px;text-align:center;"></p>
+</div>
+
+<div id="app" class="hidden">
+<div class="container">
+
+  <!-- HOME -->
+  <div id="home">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2>Overview</h2>
+      <button onclick="logout()" style="width:auto;padding:8px 16px;font-size:13px;margin:0;">Logout</button>
+    </div>
+    <div class="row">
+      <div class="card" style="flex:1;margin-right:6px;">
+        <small>Income</small>
+        <div class="green" id="income">₹0</div>
+      </div>
+      <div class="card" style="flex:1;margin-left:6px;">
+        <small>Expense</small>
+        <div class="red" id="expense">₹0</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Recent Transactions</h3>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <!-- ALL TRANSACTIONS -->
+  <div id="txns" class="hidden">
+    <h2>Transactions</h2>
+    <div class="card">
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">&#8249;</button>
+        <span id="monthLabel"></span>
+        <button onclick="changeMonth(1)">&#8250;</button>
+      </div>
+      <div class="txn-summary">
+        <span>Income: <span class="green" id="txnIncome">₹0</span></span>
+        <span>Expense: <span class="red" id="txnExpense">₹0</span></span>
+      </div>
+    </div>
+    <div class="card">
+      <div id="txnList"></div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div id="charts" class="hidden">
+    <h2>Analytics</h2>
+    <div class="card"><canvas id="barChart"></canvas></div>
+    <div class="card"><canvas id="pieChart"></canvas></div>
+  </div>
+
+  <!-- ADD -->
+  <div id="add" class="hidden">
+    <h2>Add Transaction</h2>
+    <div class="field" id="amountField">
+      <input id="amount" type="number" placeholder="Amount"/>
+      <label>Amount</label>
+      <div class="error-msg hidden">Enter amount</div>
+    </div>
+    <div class="field">
+      <select id="type">
+        <option value="expense">Expense</option>
+        <option value="income">Income</option>
+      </select>
+      <label>Type</label>
+    </div>
+    <div class="field">
+      <select id="category"></select>
+      <label>Category</label>
+    </div>
+    <div class="field">
+      <input id="note" type="text" placeholder=" "/>
+      <label>Note (optional)</label>
+    </div>
+    <div class="field">
+      <input id="date" type="datetime-local" placeholder=" "/>
+      <label>Date & Time</label>
+    </div>
+    <button id="saveBtn">Save</button>
+  </div>
+
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-inner">
+    <button id="nav-home" class="nav-item active" onclick="show('home')">
+      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        <path d="M3 10L12 3l9 7"/><path d="M9 21V12h6v9"/>
+      </svg>
+      <span>Home</span>
+    </button>
+    <button id="nav-txns" class="nav-item" onclick="show('txns')">
+      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        <line x1="8" y1="6" x2="21" y2="6"/>
+        <line x1="8" y1="12" x2="21" y2="12"/>
+        <line x1="8" y1="18" x2="21" y2="18"/>
+        <circle cx="3" cy="6" r="1" fill="currentColor"/>
+        <circle cx="3" cy="12" r="1" fill="currentColor"/>
+        <circle cx="3" cy="18" r="1" fill="currentColor"/>
+      </svg>
+      <span>All</span>
+    </button>
+    <button class="nav-item primary" onclick="show('add')">
+      <svg width="22" height="22" stroke="black" fill="none" stroke-width="2">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+    </button>
+    <button id="nav-charts" class="nav-item" onclick="show('charts')">
+      <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
+        <rect x="3" y="10" width="4" height="10"/>
+        <rect x="10" y="6" width="4" height="14"/>
+        <rect x="17" y="3" width="4" height="17"/>
+      </svg>
+      <span>Charts</span>
+    </button>
+  </div>
+</div>
+
+</div>
+
+<script>
+const amountEl = document.getElementById("amount");
+const typeEl = document.getElementById("type");
+const categoryEl = document.getElementById("category");
+const noteEl = document.getElementById("note");
+const dateEl = document.getElementById("date");
+const incomeEl = document.getElementById("income");
+const expenseEl = document.getElementById("expense");
+const listEl = document.getElementById("list");
+const amountField = document.getElementById("amountField");
+const authDiv = document.getElementById("auth");
+const appDiv = document.getElementById("app");
+
+let data = [];
+let currentUser = null;
+let barChart, pieChart;
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+
+const categoryMap = {
+    expense: ["Food","Rent","Shopping","Travel", "Subscription","Transfer","Donation"],
+  income: ["Salary","Freelance","Bonus"]
+};
+
+const monthNames = ["January","February","March","April","May","June",
+  "July","August","September","October","November","December"];
+
+/* ---- AUTH ---- */
+async function init() {
+  if (window.location.hash.includes("error=")) {
+    history.replaceState(null, "", window.location.pathname);
+  }
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    history.replaceState(null, "", window.location.pathname);
+    showApp();
+  } else {
+    showAuth();
+  }
+}
+
+function showAuth() {
+  authDiv.classList.remove("hidden");
+  appDiv.classList.add("hidden");
+}
+
+function showApp() {
+  authDiv.classList.add("hidden");
+  appDiv.classList.remove("hidden");
+  loadData();
+}
+
+document.getElementById("loginBtn").onclick = async () => {
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
+  if (!email || !password) return alert("Enter email and password");
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) alert(error.message);
+};
+
+document.getElementById("signupBtn").onclick = async () => {
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
+  if (!email || !password) return alert("Enter email and password");
+  if (password.length < 6) return alert("Password must be at least 6 characters");
+  const { error } = await supabaseClient.auth.signUp({ email, password });
+  if (error) alert(error.message);
+  else document.getElementById("authMsg").textContent = "✓ Account created! You are now logged in.";
+};
+
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (session) { currentUser = session.user; showApp(); }
+  else { currentUser = null; showAuth(); }
+});
+
+async function logout() {
+  await supabaseClient.auth.signOut({ scope: 'local' });
+  localStorage.clear();
+  location.reload();
+}
+
+/* ---- DATA ---- */
+async function loadData() {
+  if (!currentUser) return;
+  const { data: rows } = await supabaseClient
+    .from("transactions")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("date", { ascending: false });
+  data = rows || [];
+  render();
+  renderTxns();
+}
+
+document.getElementById("saveBtn").onclick = async () => {
+  if (!amountEl.value) {
+    amountField.classList.add("error");
+    amountField.querySelector(".error-msg").classList.remove("hidden");
+    return;
+  }
+  amountField.classList.remove("error");
+  amountField.querySelector(".error-msg").classList.add("hidden");
+
+  await supabaseClient.from("transactions").insert([{
+    amount: +amountEl.value,
+    type: typeEl.value,
+    category: categoryEl.value,
+    note: noteEl.value.trim(),
+    date: dateEl.value || new Date().toISOString(),
+    user_id: currentUser.id
+  }]);
+
+  amountEl.value = "";
+  noteEl.value = "";
+  await loadData();
+  show("home");
+};
+
+/* ---- UI ---- */
+function updateCategories() {
+  const cats = categoryMap[typeEl.value];
+  categoryEl.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join("");
+}
+
+typeEl.addEventListener("change", updateCategories);
+
+function show(page) {
+  ["home","txns","charts","add"].forEach(p => document.getElementById(p).classList.add("hidden"));
+  document.getElementById(page).classList.remove("hidden");
+  document.querySelectorAll(".nav-item:not(.primary)").forEach(b => b.classList.remove("active"));
+  const navBtn = document.getElementById("nav-" + page);
+  if (navBtn) navBtn.classList.add("active");
+  if (page === "add") {
+    const now = new Date();
+    const ist = new Date(now.getTime() + 330 * 60000);
+    dateEl.value = ist.toISOString().slice(0,16);
+    updateCategories();
+  }
+  if (page === "txns") renderTxns();
+}
+
+function changeMonth(dir) {
+  currentMonth += dir;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderTxns();
+}
+
+function renderTxns() {
+  document.getElementById("monthLabel").textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+  const filtered = data.filter(t => {
+    const d = new Date(t.date);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  let inc = 0, exp = 0;
+  filtered.forEach(t => t.type === "income" ? inc += t.amount : exp += t.amount);
+  document.getElementById("txnIncome").textContent = "₹" + inc.toLocaleString('en-IN');
+  document.getElementById("txnExpense").textContent = "₹" + exp.toLocaleString('en-IN');
+
+  const txnList = document.getElementById("txnList");
+  if (!filtered.length) {
+    txnList.innerHTML = "<div class='empty'>No transactions this month</div>";
+    return;
+  }
+
+  txnList.innerHTML = filtered.map(t => `
+    <div class="txn-item">
+      <div>
+        <div>${t.category}${t.note ? ` · ${t.note}` : ""}</div>
+        <div class="txn-meta">${new Date(t.date).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="${t.type==="expense"?"red":"green"}" style="font-weight:600;">
+        ${t.type==="expense"?"-":"+"} ₹${t.amount.toLocaleString('en-IN')}
+      </div>
+    </div>`).join("");
+}
+
+function render() {
+  let income = 0, expense = 0, map = {};
+  data.forEach(t => {
+    if (t.type === "income") income += t.amount;
+    else { expense += t.amount; map[t.category] = (map[t.category]||0) + t.amount; }
+  });
+  incomeEl.innerText = "₹" + income.toLocaleString('en-IN');
+  expenseEl.innerText = "₹" + expense.toLocaleString('en-IN');
+  listEl.innerHTML = data.length
+    ? data.slice(0,5).map(t => `
+      <div class="row">
+        <div>
+          <div>${t.category}${t.note ? ` · ${t.note}` : ""}</div>
+          <small>${new Date(t.date).toLocaleString('en-IN')}</small>
+        </div>
+        <div class="${t.type==="expense"?"red":"green"}">₹${t.amount.toLocaleString('en-IN')}</div>
+      </div>`).join("")
+    : "<div class='empty'>No transactions yet</div>";
+
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById("barChart"), {
+    type:"bar",
+    data:{labels:["Income","Expense"],datasets:[{data:[income,expense],backgroundColor:["#22c55e","#ef4444"]}]}
+  });
+  if (pieChart) pieChart.destroy();
+  pieChart = new Chart(document.getElementById("pieChart"), {
+    type:"doughnut",
+    data:{labels:Object.keys(map),datasets:[{data:Object.values(map)}]}
+  });
 }
 
 updateCategories();
