@@ -100,7 +100,7 @@ input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type=number] { -moz-appearance: textfield; }  
+input[type=number] { -moz-appearance: textfield; }
 </style>
 </head>
 <body>
@@ -169,6 +169,10 @@ input[type=number] { -moz-appearance: textfield; }
       <label>Category</label>
     </div>
     <div class="field">
+      <input id="note" type="text" placeholder=" "/>
+      <label>Note (optional)</label>
+    </div>
+    <div class="field">
       <input id="date" type="datetime-local" placeholder=" "/>
       <label>Date & Time</label>
     </div>
@@ -209,6 +213,7 @@ input[type=number] { -moz-appearance: textfield; }
 const amountEl = document.getElementById("amount");
 const typeEl = document.getElementById("type");
 const categoryEl = document.getElementById("category");
+const noteEl = document.getElementById("note");
 const dateEl = document.getElementById("date");
 const incomeEl = document.getElementById("income");
 const expenseEl = document.getElementById("expense");
@@ -312,11 +317,13 @@ document.getElementById("saveBtn").onclick = async () => {
     amount: +amountEl.value,
     type: typeEl.value,
     category: categoryEl.value,
+    note: noteEl.value.trim(),
     date: dateEl.value || new Date().toISOString(),
     user_id: currentUser.id
   }]);
 
   amountEl.value = "";
+  noteEl.value = "";
   await loadData();
   show("home");
 };
@@ -337,7 +344,7 @@ function show(page) {
   if (navBtn) navBtn.classList.add("active");
   if (page === "add") {
     const now = new Date();
-    const offset = 330; // IST = UTC+5:30
+    const offset = 330;
     const ist = new Date(now.getTime() + offset * 60000);
     dateEl.value = ist.toISOString().slice(0,16);
     updateCategories();
@@ -350,14 +357,14 @@ function render() {
     if (t.type === "income") income += t.amount;
     else { expense += t.amount; map[t.category] = (map[t.category]||0) + t.amount; }
   });
-  incomeEl.innerText = "₹" + income.toLocaleString();
-  expenseEl.innerText = "₹" + expense.toLocaleString();
+  incomeEl.innerText = "₹" + income.toLocaleString('en-IN');
+  expenseEl.innerText = "₹" + expense.toLocaleString('en-IN');
   listEl.innerHTML = data.length
     ? data.slice(0,5).map(t => `
       <div class="row">
         <div>
-          <div>${t.category}</div>
-          <small>${new Date(t.date).toLocaleString()}</small>
+          <div>${t.category}${t.note ? ` · ${t.note}` : ""}</div>
+          <small>${new Date(t.date).toLocaleString('en-IN')}</small>
         </div>
         <div class="${t.type==="expense"?"red":"green"}">₹${t.amount.toLocaleString('en-IN')}</div>
       </div>`).join("")
