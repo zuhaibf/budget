@@ -377,6 +377,7 @@ async function init() {
   } else {
     showAuth();
   }
+  appReady = true;
 }
 
 function showAuth() {
@@ -408,8 +409,9 @@ document.getElementById("signupBtn").onclick = async () => {
   else document.getElementById("authMsg").textContent = "✓ Account created! You are now logged in.";
 };
 
+let appReady = false;
 supabaseClient.auth.onAuthStateChange((event, session) => {
-  if (event === "INITIAL_SESSION") return;
+  if (!appReady) return;
   if (session) { currentUser = session.user; showApp(); }
   else { currentUser = null; showAuth(); }
 });
