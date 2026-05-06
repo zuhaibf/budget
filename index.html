@@ -208,10 +208,10 @@ input[type=number] { -moz-appearance:textfield; }
       <select id="category"></select>
       <label>Category</label>
     </div>
-    <!-- Feature 6: Recurring -->
-    <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding:14px;background:var(--field);border-radius:14px;">
-      <input type="checkbox" id="recurringCheck" style="width:18px;height:18px;accent-color:var(--accent);margin:0;padding:0;flex-shrink:0;"/>
-      <label for="recurringCheck" style="font-size:14px;color:var(--muted);cursor:pointer;">Repeat monthly (recurring)</label>
+    <!-- For month field (income only) -->
+    <div class="field hidden" id="forMonthField">
+      <select id="forMonth"></select>
+      <label>For month (salary period)</label>
     </div>
     <div class="field">
       <input id="note" type="text" placeholder=" "/>
@@ -477,17 +477,21 @@ saveBtn.onclick = async () => {
   amountField.querySelector('.error-msg').classList.add('hidden');
   saveBtn.disabled=true; saveBtn.textContent='Saving…';
 
+  const type = document.getElementById('type').value;
+  const forMonthVal = document.getElementById('forMonthField').classList.contains('hidden')
+    ? null : document.getElementById('forMonth').value.split(',');
+
   await supabaseClient.from('transactions').insert([{
-    amount:+amountEl.value, type:document.getElementById('type').value,
+    amount:+amountEl.value, type,
     category:document.getElementById('category').value,
     note:document.getElementById('note').value.trim(),
     date:document.getElementById('date').value||new Date().toISOString(),
-    recurring:document.getElementById('recurringCheck').checked,
+    for_month: forMonthVal ? +forMonthVal[0] : null,
+    for_year:  forMonthVal ? +forMonthVal[1] : null,
     user_id:currentUser.id
   }]);
 
   amountEl.value=''; document.getElementById('note').value='';
-  document.getElementById('recurringCheck').checked=false;
   saveBtn.disabled=false; saveBtn.textContent='Save';
   await loadAll(); show('home');
 };
@@ -655,8 +659,8 @@ function generateInsights() {
   const prevMonth= currentMonth===0?11:currentMonth-1;
   const prevYear = currentMonth===0?currentYear-1:currentYear;
 
-  const thisMonthTx=data.filter(t=>{ const d=new Date(t.date); return d.getMonth()===currentMonth&&d.getFullYear()===currentYear; });
-  const prevMonthTx=data.filter(t=>{ const d=new Date(t.date); return d.getMonth()===prevMonth&&d.getFullYear()===prevYear; });
+  const thisMonthTx=data.filter(t=>txInMonth(t,currentMonth,currentYear));
+  const prevMonthTx=data.filter(t=>txInMonth(t,prevMonth,prevYear));
 
   const sumExp=txs=>txs.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
   const sumInc=txs=>txs.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
@@ -681,13 +685,6 @@ function generateInsights() {
     const rate=Math.round((thisInc-thisExp)/thisInc*100);
     if (rate>0) insights.push({icon:'💰',text:`You're saving ${rate}% of your income this month.`});
     else insights.push({icon:'⚠️',text:`You're spending more than you earn this month. Watch out!`});
-  }
-
-  // Recurring transactions reminder
-  const recur=data.filter(t=>t.recurring);
-  if (recur.length>0) {
-    const recurExp=recur.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
-    insights.push({icon:'🔁',text:`You have ${recur.length} recurring transaction(s) totalling ${fmt(recurExp)}/month.`});
   }
 
   // Budget warning
@@ -718,15 +715,44 @@ function renderInsights() {
 /* ---- UI ---- */
 function updateCategories() {
   buildCatSelect(document.getElementById('category'), document.getElementById('type').value);
+  updateForMonthVisibility();
 }
-document.getElementById('type').addEventListener('change', updateCategories);
+
+function updateForMonthVisibility() {
+  const type = document.getElementById('type').value;
+  const cat  = document.getElementById('category').value;
+  const isIncome = type === 'income';
+  const field = document.getElementById('forMonthField');
+  field.classList.toggle('hidden', !isIncome);
+  if (isIncome) populateForMonth();
+}
+
+function populateForMonth(selected) {
+  const sel = document.getElementById('forMonth');
+  const now = new Date();
+  // smart default: if last 5 days of month, default to next month
+  const isEndOfMonth = now.getDate() >= now.toLocaleDateString('en-IN',{day:'numeric',month:'numeric'}).split('/')[0] && (new Date(now.getFullYear(), now.getMonth()+1, 0).getDate() - now.getDate()) <= 4;
+  const defaultMonth = isEndOfMonth ? (now.getMonth()+1)%12 : now.getMonth();
+  const defaultYear  = isEndOfMonth && now.getMonth()===11 ? now.getFullYear()+1 : isEndOfMonth ? now.getFullYear() : now.getFullYear();
+  sel.innerHTML = '';
+  for (let i=0; i<12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth()-3+i, 1);
+    const m = d.getMonth(), y = d.getFullYear();
+    const opt = document.createElement('option');
+    opt.value = `${m},${y}`;
+    opt.textContent = `${monthNames[m]} ${y}`;
+    if (selected) { if (opt.value === selected) opt.selected=true; }
+    else if (m===defaultMonth && y===defaultYear) opt.selected=true;
+    sel.appendChild(opt);
+  }
+}
 
 function show(page) {
   ['home','txns','charts','add','goals','budgets','sms'].forEach(p=>document.getElementById(p).classList.add('hidden'));
   document.getElementById(page).classList.remove('hidden');
   document.querySelectorAll('.nav-item:not(.primary)').forEach(b=>b.classList.remove('active'));
   const nb=document.getElementById('nav-'+page); if(nb) nb.classList.add('active');
-  if (page==='add') { dateEl.value=localDatetimeValue(); updateCategories(); }
+  if (page==='add') { dateEl.value=localDatetimeValue(); updateCategories(); document.getElementById('forMonthField').classList.add('hidden'); }
   if (page==='txns') renderTxns();
   if (page==='budgets') renderBudgets();
   if (page==='goals') renderGoals();
