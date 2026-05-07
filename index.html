@@ -48,7 +48,8 @@ button:disabled { opacity:0.5; cursor:not-allowed; }
 .nav-inner { width:95%; display:flex; justify-content:space-between; align-items:center; background:rgba(20,20,20,0.6); backdrop-filter:blur(12px); border-radius:20px; padding:10px 12px; }
 .nav-item { display:flex; flex-direction:column; align-items:center; font-size:10px; color:#aaa; background:none; border:none; width:auto; margin:0; padding:4px 6px; }
 .nav-item.active { color:white; }
-.nav-item.primary { width:56px !important; height:56px !important; border-radius:50%; background:white; display:flex; align-items:center; justify-content:center; margin-top:-30px; }
+/* FIX 1: padding-right:1px corrects optical offset of + glyph */
+.nav-item.primary { width:56px !important; height:56px !important; border-radius:50%; background:white; display:flex; align-items:center; justify-content:center; margin-top:-30px; padding-right:1px; }
 .empty { text-align:center; color:#666; padding:16px; }
 input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 input[type=number] { -moz-appearance:textfield; }
@@ -80,9 +81,10 @@ input[type=number] { -moz-appearance:textfield; }
 .goal-label { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
 .goal-bar-bg { background:var(--field); border-radius:99px; height:10px; overflow:hidden; }
 .goal-bar-fill { height:100%; border-radius:99px; background:var(--accent); transition:width 0.4s; }
-.insight-item { display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid #222; font-size:13px; }
+/* FIX 2: insight-icon no longer uses font-size since it holds SVG not emoji */
+.insight-item { display:flex; gap:10px; align-items:flex-start; padding:12px 0; border-bottom:1px solid #222; font-size:13px; line-height:1.5; }
 .insight-item:last-child { border-bottom:none; }
-.insight-icon { font-size:20px; flex-shrink:0; }
+.insight-icon { flex-shrink:0; display:flex; align-items:center; margin-top:1px; }
 .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:flex-end; justify-content:center; z-index:100; }
 .modal-bg.hidden { display:none !important; }
 .modal { background:#1a1a1a; border-radius:24px 24px 0 0; padding:24px 20px 40px; width:100%; max-width:420px; }
@@ -164,7 +166,7 @@ input[type=number] { -moz-appearance:textfield; }
 
   <!-- INSIGHTS -->
   <div id="insights" class="hidden">
-    <h2>💡 Insights</h2>
+    <h2>Insights</h2>
     <div class="card">
       <div id="insightsList"><div class="empty">Loading insights…</div></div>
     </div>
@@ -602,35 +604,50 @@ function generateInsights() {
   const sumExp=txs=>txs.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
   const sumInc=txs=>txs.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
   const thisExp=sumExp(thisMonthTx), prevExp=sumExp(prevMonthTx), thisInc=sumInc(thisMonthTx);
+
+  /* SVG icon set — stroke-only, sized 16×16 */
+  const ICONS = {
+    up:    `<svg width="16" height="16" viewBox="0 0 24 24" stroke="#ef4444" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+    down:  `<svg width="16" height="16" viewBox="0 0 24 24" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`,
+    top:   `<svg width="16" height="16" viewBox="0 0 24 24" stroke="#f59e0b" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    save:  `<svg width="16" height="16" viewBox="0 0 24 24" stroke="#3b82f6" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+    warn:  `<svg width="16" height="16" viewBox="0 0 24 24" stroke="#ef4444" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    alert: `<svg width="16" height="16" viewBox="0 0 24 24" stroke="#f59e0b" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+    ok:    `<svg width="16" height="16" viewBox="0 0 24 24" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  };
+
   if (prevExp>0) {
     const diff=Math.round((thisExp-prevExp)/prevExp*100);
-    if (diff>0) insights.push({icon:'📈',text:`You've spent ${diff}% more this month compared to last month.`});
-    else if (diff<0) insights.push({icon:'📉',text:`You've spent ${Math.abs(diff)}% less this month compared to last month. Great job!`});
+    if (diff>0) insights.push({icon:ICONS.up, text:`Spending up ${diff}% vs last month — ${fmt(thisExp)} vs ${fmt(prevExp)}.`});
+    else if (diff<0) insights.push({icon:ICONS.down, text:`Spending down ${Math.abs(diff)}% vs last month — ${fmt(thisExp)} vs ${fmt(prevExp)}.`});
   }
   const catMap={};
   thisMonthTx.filter(t=>t.type==='expense').forEach(t=>{ catMap[t.category]=(catMap[t.category]||0)+t.amount; });
   const topCat=Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
-  if (topCat) insights.push({icon:'🏆',text:`Your biggest spend this month is ${topCat[0]} at ${fmt(topCat[1])}.`});
+  if (topCat) insights.push({icon:ICONS.top, text:`Largest category: ${topCat[0]} at ${fmt(topCat[1])}${thisExp>0?` (${Math.round(topCat[1]/thisExp*100)}% of expenses)`:'.'}`});
   if (thisInc>0) {
     const rate=Math.round((thisInc-thisExp)/thisInc*100);
-    if (rate>0) insights.push({icon:'💰',text:`You're saving ${rate}% of your income this month.`});
-    else insights.push({icon:'⚠️',text:`You're spending more than you earn this month. Watch out!`});
+    if (rate>0) insights.push({icon:ICONS.save, text:`Saving ${rate}% of income — ${fmt(thisInc-thisExp)} retained this month.`});
+    else insights.push({icon:ICONS.warn, text:`Expenses exceed income by ${fmt(thisExp-thisInc)} this month.`});
   }
   const monthBudgets=budgetsData.filter(b=>b.month===currentMonth&&b.year===currentYear);
   monthBudgets.forEach(b=>{
     const spent=catMap[b.category]||0;
-    if (spent>b.amount) insights.push({icon:'🚨',text:`You've exceeded your ${b.category} budget by ${fmt(spent-b.amount)}.`});
-    else if (spent/b.amount>0.8) insights.push({icon:'⚡',text:`You're at ${Math.round(spent/b.amount*100)}% of your ${b.category} budget.`});
+    if (spent>b.amount) insights.push({icon:ICONS.warn, text:`${b.category} budget exceeded by ${fmt(spent-b.amount)} (${fmt(spent)} of ${fmt(b.amount)}).`});
+    else if (spent/b.amount>0.8) insights.push({icon:ICONS.alert, text:`${b.category} at ${Math.round(spent/b.amount*100)}% of budget — ${fmt(b.amount-spent)} remaining.`});
   });
-  if (!insights.length) insights.push({icon:'✅',text:'Everything looks good this month! Keep it up.'});
+  if (!insights.length) insights.push({icon:ICONS.ok, text:'No issues this month. Finances look healthy.'});
   return insights;
 }
+
 function renderInsights() {
   const el=document.getElementById('insightsList');
   el.innerHTML='';
   generateInsights().forEach(ins=>{
     const div=document.createElement('div'); div.className='insight-item';
-    const icon=document.createElement('span'); icon.className='insight-icon'; icon.textContent=ins.icon;
+    const icon=document.createElement('div');
+    icon.className='insight-icon';
+    icon.innerHTML=ins.icon;
     const txt=document.createElement('span'); txt.textContent=ins.text;
     div.append(icon,txt); el.appendChild(div);
   });
@@ -715,7 +732,8 @@ function makeTxnItem(t, runningBal) {
     label.appendChild(badge);
   }
   const meta=document.createElement('div'); meta.className='txn-meta';
-  meta.textContent=new Date(t.date).toLocaleString('en-IN')+(t.type==='income'&&t.for_month!=null?` · counted in ${monthNames[t.for_month]}`:'');
+  /* FIX 3: timeStyle:'short' drops the seconds from the time display */
+  meta.textContent=new Date(t.date).toLocaleString('en-IN',{dateStyle:'short',timeStyle:'short'})+(t.type==='income'&&t.for_month!=null?` · counted in ${monthNames[t.for_month]}`:'');
   left.append(label,meta);
   if (runningBal!==undefined) {
     const bal=document.createElement('div'); bal.className='txn-balance';
@@ -759,7 +777,16 @@ function render() {
   let income=0, expense=0, catMap={};
   thisMonthTx.forEach(t=>{ if(t.type==='income') income+=t.amount; else { expense+=t.amount; catMap[t.category]=(catMap[t.category]||0)+t.amount; } });
   const thisMonthNet=income-expense;
-  const carriedForward=allTimeBalance-thisMonthNet;
+  // Carry-forward uses actual transaction date (ignores for_month tagging)
+  // so a salary dated Apr 29 but tagged for May doesn't distort pre-May balance
+  const firstOfMonth=new Date(currentYear,currentMonth,1).getTime();
+  let cfIncome=0, cfExpense=0;
+  data.forEach(t=>{
+    if (new Date(t.date).getTime()<firstOfMonth) {
+      t.type==='income' ? cfIncome+=t.amount : cfExpense+=t.amount;
+    }
+  });
+  const carriedForward=cfIncome-cfExpense;
 
   const balEl=document.getElementById('balance'), balCard=document.getElementById('balanceCard');
   balEl.textContent=fmt(Math.abs(allTimeBalance));
@@ -790,7 +817,6 @@ function render() {
     pieCard.innerHTML='<canvas id="pieChart"></canvas>';
     pieChart=new Chart(document.getElementById('pieChart'),{type:'doughnut',data:{labels:Object.keys(catMap),datasets:[{data:Object.values(catMap)}]}});
   }
-  renderInsights();
 }
 
 /* ---- EVENT DELEGATION ---- */
