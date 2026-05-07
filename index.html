@@ -135,10 +135,6 @@ input[type=number] { -moz-appearance:textfield; }
       <div class="card" style="flex:1;margin-right:6px;"><small>Income</small><div class="green" id="income" style="font-size:15px;font-weight:600;margin-top:4px;">₹0</div></div>
       <div class="card" style="flex:1;margin-left:6px;"><small>Expense</small><div class="red" id="expense" style="font-size:15px;font-weight:600;margin-top:4px;">₹0</div></div>
     </div>
-    <div class="card" id="insightsCard">
-      <h3 style="margin:0 0 10px;">💡 Insights</h3>
-      <div id="insightsList"><div class="empty">Loading insights…</div></div>
-    </div>
     <div class="card">
       <h3 style="margin:0 0 12px;">Recent Transactions</h3>
       <div class="txn-scroll" id="list"></div>
@@ -164,6 +160,14 @@ input[type=number] { -moz-appearance:textfield; }
       </div>
     </div>
     <div class="card"><div id="txnList"></div></div>
+  </div>
+
+  <!-- INSIGHTS -->
+  <div id="insights" class="hidden">
+    <h2>💡 Insights</h2>
+    <div class="card">
+      <div id="insightsList"><div class="empty">Loading insights…</div></div>
+    </div>
   </div>
 
   <!-- CHARTS -->
@@ -313,21 +317,21 @@ input[type=number] { -moz-appearance:textfield; }
   <div class="modal" style="padding-bottom:32px;">
     <h3 style="margin-bottom:16px;">More</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <button onclick="showFromMore('goals')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;">
-        <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+      <button onclick="showFromMore('goals')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;overflow:hidden;">
+        <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
         Goals
       </button>
-      <button onclick="showFromMore('budgets')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;">
-        <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="17" y="3" width="4" height="17"/></svg>
+      <button onclick="showFromMore('budgets')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;overflow:hidden;">
+        <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" style="flex-shrink:0;"><rect x="3" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="17" y="3" width="4" height="17"/></svg>
         Budget
       </button>
-      <button onclick="showFromMore('charts')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;">
-        <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <button onclick="showFromMore('charts')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;overflow:hidden;">
+        <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" style="flex-shrink:0;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Charts
       </button>
-      <button onclick="showFromMore('sms')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;">
-        <svg width="20" height="20" stroke="currentColor" fill="none" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-        SMS
+      <button onclick="showFromMore('insights')" style="background:var(--field);color:white;display:flex;align-items:center;gap:10px;padding:14px 16px;margin:0;overflow:hidden;">
+        <svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Insights
       </button>
     </div>
   </div>
@@ -673,7 +677,6 @@ function closeMore() {
 function showFromMore(page) {
   closeMore();
   show(page);
-  // keep More highlighted when on a "more" page
   document.getElementById('nav-more').classList.add('active');
 }
 document.getElementById('moreSheet').addEventListener('click', function(e) {
@@ -681,16 +684,16 @@ document.getElementById('moreSheet').addEventListener('click', function(e) {
 });
 
 function show(page) {
-  ['home','txns','charts','add','goals','budgets','sms'].forEach(p=>document.getElementById(p).classList.add('hidden'));
+  ['home','txns','charts','add','goals','budgets','sms','insights'].forEach(p=>document.getElementById(p).classList.add('hidden'));
   document.getElementById(page).classList.remove('hidden');
   document.querySelectorAll('.nav-item:not(.primary)').forEach(b=>b.classList.remove('active'));
   const nb=document.getElementById('nav-'+page); if(nb) nb.classList.add('active');
-  // highlight More if on a more-page
-  if (['goals','budgets','charts','sms'].includes(page)) document.getElementById('nav-more').classList.add('active');
+  if (['goals','budgets','charts','sms','insights'].includes(page)) document.getElementById('nav-more').classList.add('active');
   if (page==='add') { document.getElementById('date').value=localDatetimeValue(); updateCategories(); document.getElementById('forMonthField').classList.add('hidden'); }
   if (page==='txns') renderTxns();
   if (page==='budgets') renderBudgets();
   if (page==='goals') renderGoals();
+  if (page==='insights') renderInsights();
 }
 
 function changeMonth(dir) {
