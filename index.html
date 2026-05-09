@@ -162,8 +162,8 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 input[type=number] { -moz-appearance:textfield; }
 
 /* ── NAV ── */
-.nav { position:fixed; bottom:12px; width:100%; max-width:420px; display:flex; justify-content:center; }
-.nav-inner { width:95%; display:flex; justify-content:space-between; align-items:center; background:var(--nav-bg); backdrop-filter:blur(12px); border-radius:20px; padding:10px 12px; }
+.nav { position:fixed; bottom:12px; left:0; right:0; display:flex; justify-content:center; z-index:50; pointer-events:none; }
+.nav-inner { width:calc(100% - 32px); max-width:388px; display:flex; justify-content:space-between; align-items:center; background:var(--nav-bg); backdrop-filter:blur(12px); border-radius:20px; padding:10px 16px; pointer-events:all; }
 .nav-item { display:flex; flex-direction:column; align-items:center; font-size:10px; color:#aaa; background:none; border:none; width:auto; margin:0; padding:4px 6px; cursor:pointer; }
 .nav-item.active { color:var(--text); }
 [data-theme="pastel"] .nav-item.active { color:var(--accent); }
