@@ -332,7 +332,7 @@ input[type=number] { -moz-appearance:textfield; }
   border-top-color:rgba(255,139,110,0.10);
 }
 [data-theme="pastel"] .expense-total-card .bal-amount {
-  color:#ff8b6e;
+  color: #ff8b6e !important;
 }
 </style>
 </head>
@@ -748,7 +748,7 @@ function applyMode() {
   expCard.style.marginLeft = expOnly ? '0' : '';
   expCard.style.flex       = expOnly ? '1' : '';
   // row flex: if expense only, still show the row but just the one card
-  document.getElementById('homeStatsRow').style.display      = '';
+  document.getElementById('homeStatsRow').style.display = expOnly ? 'none' : '';
 
   /* ── Add Transaction ── */
   const typeField = document.getElementById('typeField');
