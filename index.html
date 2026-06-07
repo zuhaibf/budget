@@ -235,7 +235,9 @@ input[type=number] { -moz-appearance:textfield; }
 .chart-legend-pct { font-size:12px; font-weight:600; color:var(--text); flex-shrink:0; }
 
 /* ── CATEGORY BREAKDOWN LIST ── */
-.cat-bar-item { margin-bottom:18px; }
+.cat-bar-item { margin-bottom:18px; cursor:pointer; border-radius:12px; transition:background 0.15s; }
+.cat-bar-item:hover { background:rgba(255,255,255,0.04); }
+[data-theme="light"] .cat-bar-item:hover { background:rgba(0,0,0,0.04); }
 .cat-bar-item:last-child { margin-bottom:0; }
 .cat-bar-top { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
 .cat-bar-icon { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -295,8 +297,6 @@ input[type=number] { -moz-appearance:textfield; }
 .range-pill.active { background:var(--accent); color:#fff; }
 [data-theme="pastel"] .range-pill.active { color:#090909; }
 
-/* ── EXPENSE ONLY: total expense card ── */
-/* ── EXPENSE ONLY: total expense card ── */
 .expense-total-card {
   border-radius:18px;
   padding:20px;
@@ -358,7 +358,6 @@ input[type=number] { -moz-appearance:textfield; }
       <button onclick="logout()" class="logout-btn">Logout</button>
     </div>
 
-    <!-- FULL MODE: balance card -->
     <div class="balance-card" id="balanceCard">
       <div class="bal-label">Balance <span id="homeMonthLabel" style="font-size:11px;color:var(--muted);"></span></div>
       <div class="bal-amount" id="balance">₹0</div>
@@ -368,7 +367,6 @@ input[type=number] { -moz-appearance:textfield; }
       </div>
     </div>
 
-    <!-- EXPENSE ONLY MODE: total expenses card -->
     <div class="expense-total-card hidden" id="expenseTotalCard">
       <div class="bal-label">
         Total Spent
@@ -418,7 +416,6 @@ input[type=number] { -moz-appearance:textfield; }
         <span>Income: <span class="green" id="txnIncome">₹0</span></span>
         <span>Expense: <span class="red" id="txnExpense">₹0</span></span>
       </div>
-      <!-- expense-only summary -->
       <div class="txn-summary hidden" id="txnSummaryExpOnly">
         <span>Total Spent: <span class="red" id="txnExpenseOnly">₹0</span></span>
       </div>
@@ -657,7 +654,6 @@ input[type=number] { -moz-appearance:textfield; }
       </button>
     </div>
 
-    <!-- MODE SWITCHER -->
     <div style="margin-top:18px;">
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:500;letter-spacing:0.3px;">Mode</div>
       <div class="theme-switcher">
@@ -666,7 +662,6 @@ input[type=number] { -moz-appearance:textfield; }
       </div>
     </div>
 
-    <!-- THEME SWITCHER -->
     <div style="margin-top:18px;">
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:500;letter-spacing:0.3px;">Theme</div>
       <div class="theme-switcher">
@@ -728,12 +723,8 @@ function setMode(mode) {
 
 function applyMode() {
   const expOnly = isExpenseOnly();
-
-  /* ── Home ── */
-  // balance card vs expense total card
   const balCard     = document.getElementById('balanceCard');
   const expTotCard  = document.getElementById('expenseTotalCard');
-  
   if (expOnly) {
     balCard.classList.add('hidden');
     expTotCard.classList.remove('hidden');
@@ -741,16 +732,11 @@ function applyMode() {
     balCard.classList.remove('hidden');
     expTotCard.classList.add('hidden');
   }
-  // income mini-card
   document.getElementById('incomeCard').style.display        = expOnly ? 'none' : '';
-  // expense card: full width when income hidden
   const expCard = document.getElementById('expenseCard');
   expCard.style.marginLeft = expOnly ? '0' : '';
   expCard.style.flex       = expOnly ? '1' : '';
-  // row flex: if expense only, still show the row but just the one card
   document.getElementById('homeStatsRow').style.display = expOnly ? 'none' : '';
-
-  /* ── Add Transaction ── */
   const typeField = document.getElementById('typeField');
   typeField.style.display = expOnly ? 'none' : '';
   const typeEl = document.getElementById('type');
@@ -759,12 +745,8 @@ function applyMode() {
     updateCategories();
     document.getElementById('forMonthField').classList.add('hidden');
   }
-
-  /* ── Transactions page summary ── */
   document.getElementById('txnSummaryRow').style.display     = expOnly ? 'none' : '';
   document.getElementById('txnSummaryExpOnly').style.display = expOnly ? '' : 'none';
-
-  /* ── Insights: Income vs Expense tab ── */
   const incExpTab = document.getElementById('tab-incexp');
   incExpTab.style.display = expOnly ? 'none' : '';
   if (expOnly && trendTab === 'incexp') {
@@ -965,42 +947,33 @@ function makeTxnItem(t, runningBal) {
 /* ── RENDER HOME ── */
 function render() {
   const expOnly = isExpenseOnly();
-
   const thisMonthTx = data.filter(t => txInMonth(t, currentMonth, currentYear));
   let income=0, expense=0;
   thisMonthTx.forEach(t => { if(t.type==='income') income+=t.amount; else expense+=t.amount; });
 
-if (expOnly) {
-  document.getElementById('expenseTotalAmt').textContent    = fmt(expense);
-  document.getElementById('expenseMonthLabel').textContent  = `· ${monthNames[currentMonth]}`;
-  document.getElementById('expense').textContent            = fmt(expense);
-
-  // Today's spend
-  const todayStr = new Date().toDateString();
-  const todayExp = data
-    .filter(t => t.type==='expense' && new Date(t.date).toDateString()===todayStr)
-    .reduce((a,t) => a+t.amount, 0);
-  document.getElementById('expTodayAmt').textContent = fmt(todayExp);
-
-  // Transaction count this month
-  const txCount = data.filter(t =>
-    t.type==='expense' && txInMonth(t, currentMonth, currentYear)
-  ).length;
-  document.getElementById('expTxnCount').textContent = txCount;
-
-  // Daily average
-  const today        = new Date();
-  const daysInMonth  = new Date(currentYear, currentMonth+1, 0).getDate();
-  const daysPassed   = (today.getMonth()===currentMonth && today.getFullYear()===currentYear)
-    ? today.getDate() : daysInMonth;
-  const dailyAvg     = daysPassed > 0 ? Math.round(expense / daysPassed) : 0;
-  document.getElementById('expDailyAvg').textContent = fmt(dailyAvg);
-} else {
-    // Full mode
+  if (expOnly) {
+    document.getElementById('expenseTotalAmt').textContent    = fmt(expense);
+    document.getElementById('expenseMonthLabel').textContent  = `· ${monthNames[currentMonth]}`;
+    document.getElementById('expense').textContent            = fmt(expense);
+    const todayStr = new Date().toDateString();
+    const todayExp = data
+      .filter(t => t.type==='expense' && new Date(t.date).toDateString()===todayStr)
+      .reduce((a,t) => a+t.amount, 0);
+    document.getElementById('expTodayAmt').textContent = fmt(todayExp);
+    const txCount = data.filter(t =>
+      t.type==='expense' && txInMonth(t, currentMonth, currentYear)
+    ).length;
+    document.getElementById('expTxnCount').textContent = txCount;
+    const today        = new Date();
+    const daysInMonth  = new Date(currentYear, currentMonth+1, 0).getDate();
+    const daysPassed   = (today.getMonth()===currentMonth && today.getFullYear()===currentYear)
+      ? today.getDate() : daysInMonth;
+    const dailyAvg     = daysPassed > 0 ? Math.round(expense / daysPassed) : 0;
+    document.getElementById('expDailyAvg').textContent = fmt(dailyAvg);
+  } else {
     let totalIncome=0, totalExpense=0;
     data.forEach(t => t.type==='income' ? totalIncome+=t.amount : totalExpense+=t.amount);
     const allTimeBalance = totalIncome - totalExpense;
-
     const firstOfMonth = new Date(currentYear, currentMonth, 1).getTime();
     let cfIncome=0, cfExpense=0;
     data.forEach(t => {
@@ -1010,13 +983,11 @@ if (expOnly) {
     });
     const carriedForward = cfIncome - cfExpense;
     const thisMonthNet   = income - expense;
-
     const balEl   = document.getElementById('balance');
     const balCard = document.getElementById('balanceCard');
     balEl.textContent = fmt(Math.abs(allTimeBalance));
     balEl.style.color = allTimeBalance < 0 ? 'var(--danger)' : 'var(--text)';
     balCard.style.background = allTimeBalance < 0 ? 'var(--bal-card-bg-neg)' : 'var(--bal-card-bg)';
-
     document.getElementById('homeMonthLabel').textContent   = `· ${monthNames[currentMonth]}`;
     document.getElementById('carryFwdAmt').textContent      = fmt(carriedForward);
     document.getElementById('thisMonthNetLabel').textContent= `${monthNames[currentMonth]} net`;
@@ -1027,14 +998,10 @@ if (expOnly) {
     document.getElementById('expense').textContent = fmt(expense);
   }
 
-  /* Recent transactions list */
   const listEl = document.getElementById('list');
   listEl.innerHTML = '';
-
-  // In expense-only mode, only show expense transactions
   const sourceData = expOnly ? data.filter(t => t.type === 'expense') : data;
   const recent = sourceData.slice(0, 20);
-
   if (!recent.length) { listEl.innerHTML = "<div class='empty'>No transactions yet</div>"; return; }
 
   let runBal = 0;
@@ -1129,6 +1096,12 @@ function renderTxns() {
   });
 }
 
+/* ── DRILL-DOWN ── */
+function drillDown(cat) {
+  document.getElementById('searchInput').value = cat;
+  show('txns');
+}
+
 /* ── TREND CHART ── */
 function setTrendTab(tab) {
   if (isExpenseOnly() && tab === 'incexp') return;
@@ -1165,7 +1138,6 @@ function renderTrendChart() {
   const canvas = document.getElementById('trendChart');
 
   let datasets;
-  // In expense-only mode, always use cashflow (expense bars only)
   if (expOnly) {
     datasets = [{
       label:'Expenses',
@@ -1206,7 +1178,6 @@ function renderTrendChart() {
     }
   });
 
-  /* summary stats */
   const totalInc = incomes.reduce((a,v)=>a+v,0);
   const totalExp = expenses.reduce((a,v)=>a+v,0);
   const totalNet = totalInc - totalExp;
@@ -1302,6 +1273,7 @@ function renderCharts() {
         <span class="cat-bar-amt">${vals[i].toLocaleString('en-IN')}</span>
       </div>
       <div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${barW}%;background:${color};"></div></div>`;
+    div.addEventListener('click', () => drillDown(c));
     breakdown.appendChild(div);
   });
 }
@@ -1338,14 +1310,12 @@ function generateInsights() {
   const topCat = Object.entries(catMap).sort((a,b)=>b[1]-a[1])[0];
   if (topCat) insights.push({icon:ICONS.top, text:`Largest category: ${topCat[0]} at ${fmt(topCat[1])}${thisExp>0?` (${Math.round(topCat[1]/thisExp*100)}% of expenses)`:'.'}` });
 
-  // Saving rate only in full mode
   if (!expOnly && thisInc>0) {
     const rate = Math.round((thisInc-thisExp)/thisInc*100);
     if (rate>0) insights.push({icon:ICONS.save,  text:`Saving ${rate}% of income — ${fmt(thisInc-thisExp)} retained this month.`});
     else        insights.push({icon:ICONS.alert, text:`Spending exceeds income by ${fmt(thisExp-thisInc)} this month.`});
   }
 
-  // Expense-only: avg daily spend insight instead
   if (expOnly && thisExp>0) {
     const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
     const today       = new Date();
